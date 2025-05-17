@@ -1,0 +1,19 @@
+*.bin
+.bloop
+.bsp
+*.class
+*.env
+/*.conf
+.history
+.idea/
+*.iml
+*.log
+.metals
+*/metals.sbt
+project/project
+project/target
+target/
+.vscode
+
+# Scala cli
+.scala-build/
