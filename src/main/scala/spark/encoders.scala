@@ -1,4 +1,4 @@
-package spark.encoders.macros
+package spark.encoders
 
 import scala.quoted.*
 import scala.deriving.*
@@ -8,8 +8,8 @@ import org.apache.spark.sql.types.*
 import org.apache.spark.unsafe.types.*
 import org.apache.spark.sql.Row
 import scala.reflect.ClassTag
-import org.apache.spark.sql.catalyst.encoders.OuterScopes
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.OuterScopes
 
 object utils:
 
@@ -47,8 +47,12 @@ object utils:
     import quotes.reflect.*
     TypeRepr.of[A] <:< TypeRepr.of[B]
 
+  def hasAnnotation[A, T](using Quotes, Type[A], Type[T]): Boolean =
+    import quotes.reflect.*
+    TypeRepr.of[A].classSymbol.get.annotations.exists(_.tpe =:= TypeRepr.of[T])
+
 // A reimplementation of the very special derivation in ScalaReflection.encoderFor
-def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] = {
+private def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] = {
   import quotes.reflect.*
 
   val productMirror = Expr.summon[Mirror.ProductOf[A]]
@@ -184,6 +188,8 @@ def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] = {
                 val encoder = ${ encoderForImpl[t] }
                 EncoderField(${ Expr(label) }, encoder, encoder.nullable, Metadata.empty)
               }
+            case unreachable   =>
+              report.errorAndAbort(s"Unexpected type ${Type.show[A]}")
           '{
             ProductEncoder(
               ${ utils.classTagOf[A] },
