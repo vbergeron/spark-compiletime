@@ -106,20 +106,35 @@ class CompiletimeCatalog extends TableCatalog with SupportsNamespaces {
 
 case class CompiletimeTable(db: String, name: String, schema: String)
 
-def fromTableExpr(table: Expr[CompiletimeTable])(using Quotes): CompiletimeTable = {
-  import quotes.reflect.*
-  table match
-    case '{ CompiletimeTable($db, $name, $schema) } =>
-      CompiletimeTable(db.valueOrAbort, name.valueOrAbort, schema.valueOrAbort)
-    case unreachable                                =>
-      report.errorAndAbort(s"unreachable: ${unreachable.show}")
+object CompiletimeTable {
+  given FromExpr[CompiletimeTable] = new FromExpr[CompiletimeTable] {
+    def unapply(x: Expr[CompiletimeTable])(using Quotes): Option[CompiletimeTable] =
+      x match
+        case '{ CompiletimeTable($db, $name, $schema) } =>
+          Some(CompiletimeTable(db.valueOrAbort, name.valueOrAbort, schema.valueOrAbort))
+
+        case _ => None
+  }
 }
 
-def checkSQLImpl(tableExpr: Expr[CompiletimeTable], sqlExpr: Expr[String])(using Quotes): Expr[String] =
-  import quotes.reflect.*
-  val sql = sqlExpr.valueOrAbort
+case class CompiletimeDatabase(tables: CompiletimeTable*)
 
-  val table = fromTableExpr(tableExpr)
+object CompiletimeDatabase {
+  given FromExpr[CompiletimeDatabase] = new FromExpr[CompiletimeDatabase] {
+    def unapply(x: Expr[CompiletimeDatabase])(using Quotes): Option[CompiletimeDatabase] =
+      x match
+        case '{ CompiletimeDatabase(${ Varargs[CompiletimeTable](tables) }*) } =>
+          Some(CompiletimeDatabase(tables.map(_.valueOrAbort)*))
+
+        case _ => None
+  }
+
+}
+
+def checkSQLImpl(databaseExpr: Expr[CompiletimeDatabase], sqlExpr: Expr[String])(using Quotes): Expr[String] =
+  import quotes.reflect.*
+  val sql      = sqlExpr.valueOrAbort
+  val database = databaseExpr.valueOrAbort
 
   val plan =
     try CatalystSqlParser.parsePlan(sql)
@@ -128,11 +143,12 @@ def checkSQLImpl(tableExpr: Expr[CompiletimeTable], sqlExpr: Expr[String])(using
   val catalog = new CompiletimeCatalog()
   catalog.initialize("compiletime", CaseInsensitiveStringMap.empty())
 
-  val schema =
-    try StructType.fromDDL(table.schema)
-    catch case error => report.errorAndAbort(error.getMessage)
+  database.tables.foreach: table =>
+    val schema =
+      try StructType.fromDDL(table.schema)
+      catch case error => report.errorAndAbort(error.getMessage)
 
-  catalog.addTable(table.db, table.name, schema)
+    catalog.addTable(table.db, table.name, schema)
 
   val analyser = Analyzer(CatalogManager(catalog, SessionCatalog(InMemoryCatalog())))
 
@@ -145,5 +161,8 @@ def checkSQLImpl(tableExpr: Expr[CompiletimeTable], sqlExpr: Expr[String])(using
 
   sqlExpr
 
-inline def checkSQL(inline table: CompiletimeTable, inline query: String): String =
-  ${ checkSQLImpl('table, 'query) }
+inline def checkSQL(inline database: CompiletimeDatabase, inline query: String): String =
+  ${ checkSQLImpl('database, 'query) }
+
+extension (inline database: CompiletimeDatabase) //
+  inline def sql(inline query: String): String = checkSQL(database, query)
