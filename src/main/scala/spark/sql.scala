@@ -15,11 +15,14 @@ import org.apache.spark.sql.SparkSession
 import org.apache.parquet.format.IntType
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.CreateTable
+import org.apache.hadoop.shaded.org.checkerframework.checker.units.qual.m
 
 class CompiletimeCatalog extends TableCatalog with SupportsNamespaces {
 
   // Storage
-  private var catalogName: String = _
+  private var catalogName: String = compiletime.uninitialized
   private var namespaces          = Set(Array("default"))
   private var views               = Map.empty[Identifier, StructType]
 
@@ -104,37 +107,80 @@ class CompiletimeCatalog extends TableCatalog with SupportsNamespaces {
   }
 }
 
-case class CompiletimeTable(db: String, name: String, schema: String)
+trait TableMirror:
+  type DB <: String
+  type Name <: String
+  type Schema <: String
 
-object CompiletimeTable {
-  given FromExpr[CompiletimeTable] = new FromExpr[CompiletimeTable] {
-    def unapply(x: Expr[CompiletimeTable])(using Quotes): Option[CompiletimeTable] =
-      x match
-        case '{ CompiletimeTable($db, $name, $schema) } =>
-          Some(CompiletimeTable(db.valueOrAbort, name.valueOrAbort, schema.valueOrAbort))
+object TableMirror:
 
-        case _ => None
-  }
-}
+  inline def db[T]: String =
+    ${ spark.macros.dbImpl[T] }
 
-case class CompiletimeDatabase(tables: CompiletimeTable*)
+  inline def name[T]: String =
+    ${ spark.macros.nameImpl[T] }
 
-object CompiletimeDatabase {
-  given FromExpr[CompiletimeDatabase] = new FromExpr[CompiletimeDatabase] {
-    def unapply(x: Expr[CompiletimeDatabase])(using Quotes): Option[CompiletimeDatabase] =
-      x match
-        case '{ CompiletimeDatabase(${ Varargs[CompiletimeTable](tables) }*) } =>
-          Some(CompiletimeDatabase(tables.map(_.valueOrAbort)*))
+  inline def schema[T]: String =
+    ${ spark.macros.schemaImpl[T] }
 
-        case _ => None
-  }
+  inline def table[T]: (String, String, String) =
+    ${ spark.macros.tableImpl[T] }
 
-}
-
-def checkSQLImpl(databaseExpr: Expr[CompiletimeDatabase], sqlExpr: Expr[String])(using Quotes): Expr[String] =
+private def createTableMirrorImpl(sqlExpr: Expr[String])(using Quotes): Expr[TableMirror] =
   import quotes.reflect.*
-  val sql      = sqlExpr.valueOrAbort
-  val database = databaseExpr.valueOrAbort
+  val sql  = sqlExpr.valueOrAbort
+  val plan =
+    try CatalystSqlParser.parsePlan(sql)
+    catch case error => report.errorAndAbort(error.getMessage)
+
+  val create = plan match
+    case node: CreateTable => node
+    case _                 => report.errorAndAbort("Not a CreateTable statement")
+
+  val names = create.name match
+    case node: UnresolvedIdentifier => node
+    case _                          => report.errorAndAbort("Not a UnresolvedIdentifier")
+
+  val name = names.nameParts match
+    case Seq(table) => table
+    case _          => report.errorAndAbort("Only non-namespaced table name are supported")
+
+  val nameType   = ConstantType(StringConstant(name)).asType
+  val schemaType = ConstantType(StringConstant(create.tableSchema.toDDL)).asType
+
+  (nameType, schemaType) match
+    case ('[name], '[schema]) =>
+      '{
+        new TableMirror {
+          type DB     = "default"
+          type Name   = name & String
+          type Schema = schema & String
+        }
+      }
+
+transparent inline def table(inline sql: String): TableMirror =
+  ${ createTableMirrorImpl('sql) }
+
+trait DatabaseMirror:
+  type Tables <: Tuple
+
+object DatabaseMirror:
+
+  inline def tables[T <: DatabaseMirror]: List[(String, String, String)] =
+    ${ spark.macros.tablesImpl[T] }
+
+def createDatabaseMirrorImpl[T <: Tuple](using Quotes, Type[T]): Expr[DatabaseMirror] =
+  '{ new DatabaseMirror { type Tables = T } }
+
+transparent inline def oneTable(table: TableMirror): DatabaseMirror =
+  ${ createDatabaseMirrorImpl[table.type *: EmptyTuple] }
+
+transparent inline def database[tables <: Tuple](tables: tables): DatabaseMirror =
+  ${ createDatabaseMirrorImpl[tables] }
+
+def checkSQLImpl[DB <: DatabaseMirror](sqlExpr: Expr[String])(using Quotes, Type[DB]): Expr[String] =
+  import quotes.reflect.*
+  val sql = sqlExpr.valueOrAbort
 
   val plan =
     try CatalystSqlParser.parsePlan(sql)
@@ -143,26 +189,42 @@ def checkSQLImpl(databaseExpr: Expr[CompiletimeDatabase], sqlExpr: Expr[String])
   val catalog = new CompiletimeCatalog()
   catalog.initialize("compiletime", CaseInsensitiveStringMap.empty())
 
-  database.tables.foreach: table =>
-    val schema =
-      try StructType.fromDDL(table.schema)
+  val tables = spark.macros.tablesImpl[DB].valueOrAbort
+
+  tables.foreach: (db, table, schema) =>
+    val parsed =
+      try StructType.fromDDL(schema)
       catch case error => report.errorAndAbort(error.getMessage)
 
-    catalog.addTable(table.db, table.name, schema)
+    catalog.addTable(db, table, parsed)
 
   val analyser = Analyzer(CatalogManager(catalog, SessionCatalog(InMemoryCatalog())))
 
   val tracker = QueryPlanningTracker()
 
-  try
-    val resolved = analyser.executeAndCheck(plan, tracker)
-    report.info(resolved.toString)
-  catch case error => report.errorAndAbort(error.getMessage)
+  val resolved =
+    try analyser.executeAndCheck(plan, tracker)
+    catch case error => report.errorAndAbort(error.getMessage)
+
+  report.info(resolved.toString)
 
   sqlExpr
 
-inline def checkSQL(inline database: CompiletimeDatabase, inline query: String): String =
-  ${ checkSQLImpl('database, 'query) }
+inline def checkSQL[DB <: DatabaseMirror](inline sql: String): String =
+  ${ checkSQLImpl[DB]('sql) }
 
-extension (inline database: CompiletimeDatabase) //
-  inline def sql(inline query: String): String = checkSQL(database, query)
+extension [T <: DatabaseMirror](db: T)
+  inline def sql(inline sql: String): String =
+    ${ checkSQLImpl[T]('sql) }
+
+private def showparseImpl(sql: Expr[String])(using Quotes): Expr[Unit] =
+  import quotes.reflect.*
+  val sqlString = sql.valueOrAbort
+  val plan      =
+    try CatalystSqlParser.parsePlan(sqlString)
+    catch case error => report.errorAndAbort(error.getMessage)
+  report.info(plan.toString)
+  '{ () }
+
+inline def showparse(inline sql: String): Unit =
+  ${ showparseImpl('sql) }

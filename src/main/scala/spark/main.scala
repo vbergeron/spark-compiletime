@@ -1,15 +1,16 @@
 package spark
 
-import org.apache.spark.sql.compiletime.CompiletimeTable
-import org.apache.spark.sql.types.*
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.compiletime.*
-import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
+import org.apache.spark.sql.types.ArrayType
+import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.StructField
 
 @main
 def run =
-  inline def users   = CompiletimeTable("default", "users", "name STRING, age INT")
-  inline def foobar  = CompiletimeTable("default", "foobar", "foo INT, age INT")
-  inline def default = CompiletimeDatabase(users, foobar)
 
-  default.sql("select name, age from default.users")
+  val users = table("create table if not exists users (name STRING, age ARRAY<INT>)")
+
+  val db = oneTable(users)
+
+  db.sql("select age from default.users")
