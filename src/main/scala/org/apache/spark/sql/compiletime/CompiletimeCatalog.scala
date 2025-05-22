@@ -10,8 +10,10 @@ import org.apache.spark.sql.connector.expressions.Transform
 import org.apache.spark.sql.catalyst.analysis.Analyzer
 import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.catalog.InMemoryCatalog
+import org.apache.spark.sql.connector.catalog.functions.UnboundFunction
+import org.apache.spark.sql.catalyst.util.ResolveDefaultColumns.BuiltInFunctionCatalog
 
-class CompiletimeCatalog extends TableCatalog, SupportsNamespaces {
+class CompiletimeCatalog extends TableCatalog, FunctionCatalog, SupportsNamespaces {
 
   // Storage
   private var catalogName: String = scala.compiletime.uninitialized
@@ -100,4 +102,11 @@ class CompiletimeCatalog extends TableCatalog, SupportsNamespaces {
     views = views.filterNot(_._1.namespace().sameElements(namespace))
     existed
   }
+
+  override def loadFunction(ident: Identifier): UnboundFunction =
+    BuiltInFunctionCatalog.loadFunction(ident)
+
+  override def listFunctions(namespace: Array[String]): Array[Identifier] =
+    BuiltInFunctionCatalog.listFunctions(namespace)
+
 }
