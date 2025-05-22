@@ -32,17 +32,19 @@ private def createTableMirrorImpl(sqlExpr: Expr[String])(using Quotes): Expr[Tab
 
   val nameType   = ConstantType(StringConstant(name)).asType
   val schemaType = ConstantType(StringConstant(create.tableSchema.toDDL)).asType
+  val queryType  = ConstantType(StringConstant(sql)).asType
 
-  (nameType, schemaType) match
-    case ('[name], '[schema]) =>
+  (nameType, schemaType, queryType) match
+    case ('[name], '[schema], '[query]) =>
       '{
         new TableMirror {
           type DB     = "default"
           type Name   = name & String
           type Schema = schema & String
+          type Query  = query & String
         }
       }
-    case unreachable          =>
+    case unreachable                    =>
       report.errorAndAbort(s"Unexpected types: $unreachable")
 
 transparent inline def table(inline sql: String): TableMirror =
@@ -98,7 +100,7 @@ extension [T <: CatalogMirror](db: T)
   inline def sql(inline sql: String): String =
     ${ checkSQLImpl[T]('sql) }
 
-private def showparseImpl(sql: Expr[String])(using Quotes): Expr[Unit] =
+private def parseImpl(sql: Expr[String])(using Quotes): Expr[Unit] =
   import quotes.reflect.*
   val sqlString = sql.valueOrAbort
   val plan      =
@@ -107,5 +109,5 @@ private def showparseImpl(sql: Expr[String])(using Quotes): Expr[Unit] =
   report.info(plan.toString)
   '{ () }
 
-inline def showparse(inline sql: String): Unit =
-  ${ showparseImpl('sql) }
+inline def parse(inline sql: String): Unit =
+  ${ parseImpl('sql) }

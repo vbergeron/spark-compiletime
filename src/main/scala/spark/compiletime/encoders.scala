@@ -61,27 +61,9 @@ private def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] =
     case '[java.time.Instant]       => '{ STRICT_INSTANT_ENCODER }
     case '[java.time.LocalDateTime] => '{ LocalDateTimeEncoder }
     case '[Row]                     => '{ UnboundRowEncoder }
-    //
-    //      // UDT encoders
-    //      case t if t.typeSymbol.annotations.exists(_.tree.tpe =:= typeOf[SQLUserDefinedType]) =>
-    //        val udt = getClassFromType(t).getAnnotation(classOf[SQLUserDefinedType]).udt().
-    //          getConstructor().newInstance().asInstanceOf[UserDefinedType[Any]]
-    //        val udtClass = udt.userClass.getAnnotation(classOf[SQLUserDefinedType]).udt()
-    //        UDTEncoder(udt, udtClass)
-    //
-    // case '[t] if UDTRegistration.exists(TypeRepr.of[t].classSymbol.get.fullName) =>
-    //  val name = TypeRepr.of[t].classSymbol.get.fullName
-    //  '{
-    //    val udtClass = UDTRegistration.getUDTFor(${ Expr(name) }).get.asInstanceOf[Class[UserDefinedType[?]]]
-    //    val udt      = udtClass.getConstructor().newInstance().asInstanceOf[UserDefinedType[Any]]
-    //    UDTEncoder(udt, udtClass)
 
-    //  }
-    //          newInstance().asInstanceOf[UserDefinedType[Any]]
-    //        UDTEncoder(udt, udt.getClass)
-    //
     // Complex encoders
-    case '[Option[t]]               =>
+    case '[Option[t]] =>
       '{
         val encoder = ${ encoderForImpl[t] }
         OptionEncoder(encoder)
@@ -163,7 +145,7 @@ private def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] =
       report.errorAndAbort(s"Unexpected type ${Type.show[A]}")
 }
 
-private inline def agnosticEncoderOf[A]: AgnosticEncoder[?] =
+private[compiletime] inline def agnosticEncoderOf[A]: AgnosticEncoder[?] =
   ${ encoderForImpl[A] }
 
 inline def encoderOf[A] =

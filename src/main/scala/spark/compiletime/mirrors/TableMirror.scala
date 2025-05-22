@@ -10,11 +10,13 @@ trait TableMirror:
   type DB <: String
   type Name <: String
   type Schema <: String
+  type Query <: String
 
   inline def db: String           = TableMirror.db[this.type]
   inline def name: String         = TableMirror.name[this.type]
   inline def schema: StructType   = TableMirror.schema[this.type]
   inline def schemaString: String = TableMirror.schemaString[this.type]
+  inline def query: String        = TableMirror.query[this.type]
 
 object TableMirror:
 
@@ -32,3 +34,6 @@ object TableMirror:
 
   inline def table[T]: (String, String, String) =
     ${ macros.tableImpl[T] }
+
+  inline def query[T]: String =
+    ${ macros.queryImpl[T] }

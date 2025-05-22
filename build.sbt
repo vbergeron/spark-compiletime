@@ -8,5 +8,9 @@ lazy val spark = Seq(
   ("org.apache.spark" %% "spark-sql"  % "3.5.5").cross(CrossVersion.for3Use2_13)
 )
 
+lazy val munit = Seq(
+  ("org.scalameta" %% "munit" % "1.1.0")
+)
+
 lazy val `spark-compiletime` = (project in file("."))
-  .settings(libraryDependencies ++= spark)
+  .settings(libraryDependencies ++= Seq.concat(spark, munit.map(_ % Test)))
