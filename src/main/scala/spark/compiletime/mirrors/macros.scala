@@ -1,7 +1,9 @@
-package spark.macros
+package spark.compiletime
+package mirrors
+package macros
+
 import scala.quoted.*
-import org.apache.spark.sql.compiletime.TableMirror
-import org.apache.spark.sql.compiletime.DatabaseMirror
+import org.apache.spark.sql.types.StructType
 
 def dbImpl[T: Type](using Quotes): Expr[String] =
   import quotes.reflect.*
@@ -24,12 +26,20 @@ def schemaImpl[T: Type](using Quotes): Expr[String] =
       TypeRepr.of[schema] match
         case ConstantType(StringConstant(schema)) => Expr(schema)
 
+def schema2Impl[T: Type](using Quotes): Expr[StructType] =
+  import quotes.reflect.*
+  Type.of[T] match
+    case '[TableMirror { type Schema = schema & String }] =>
+      TypeRepr.of[schema] match
+        case ConstantType(StringConstant(schema)) =>
+          '{ StructType.fromDDL(${ Expr(schema) }) }
+
 def tableImpl[T: Type](using Quotes): Expr[(String, String, String)] =
   Expr.ofTuple(dbImpl[T], nameImpl[T], schemaImpl[T])
 
-def tablesImpl[T <: DatabaseMirror](using Quotes, Type[T]): Expr[List[(String, String, String)]] =
+def tablesImpl[T <: CatalogMirror](using Quotes, Type[T]): Expr[List[(String, String, String)]] =
   import quotes.reflect.*
   Type.of[T] match
-    case '[DatabaseMirror { type Tables = tables }] =>
-      val data = spark.utils.typesFromTuple[tables].map { case '[t] => tableImpl[t] }
+    case '[CatalogMirror { type Tables = tables }] =>
+      val data = utils.typesFromTuple[tables].map { case '[t] => tableImpl[t] }
       Expr.ofList(data)

@@ -1,0 +1,103 @@
+package org.apache.spark.sql.compiletime
+
+import org.apache.spark.sql.connector.catalog.*
+import org.apache.spark.sql.types.*
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
+import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
+import org.apache.spark.sql.catalyst.analysis.TableAlreadyExistsException
+import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException
+import org.apache.spark.sql.connector.expressions.Transform
+import org.apache.spark.sql.catalyst.analysis.Analyzer
+import org.apache.spark.sql.catalyst.catalog.SessionCatalog
+import org.apache.spark.sql.catalyst.catalog.InMemoryCatalog
+
+class CompiletimeCatalog extends TableCatalog, SupportsNamespaces {
+
+  // Storage
+  private var catalogName: String = scala.compiletime.uninitialized
+  private var namespaces          = Set(Array("default"))
+  private var views               = Map.empty[Identifier, StructType]
+
+  // Custom part
+  def addTable(db: String, name: String, schema: StructType): Unit = {
+    val ident = Identifier.of(Array(db), name)
+    views += (ident -> schema)
+    namespaces += Array(db)
+  }
+
+  def manager =
+    CatalogManager(this, SessionCatalog(InMemoryCatalog()))
+
+  // implements TableCatalog & SupportsNamespaces
+  override def initialize(name: String, options: CaseInsensitiveStringMap): Unit = {
+    catalogName = name
+  }
+
+  override def name(): String = catalogName
+
+  override def listTables(namespace: Array[String]): Array[Identifier] =
+    views.keys.filter(_.namespace().sameElements(namespace)).toArray
+
+  override def loadTable(ident: Identifier): Table = {
+    views
+      .get(ident)
+      .map { s =>
+        new Table {
+          override def name(): String = ident.name()
+
+          override def schema(): StructType = s
+
+          override def capabilities(): java.util.Set[TableCapability] = java.util.Collections.emptySet()
+        }
+      }
+      .getOrElse(throw new NoSuchTableException(ident.toString))
+  }
+
+  override def createTable(ident: Identifier, schema: StructType, partitions: Array[Transform], properties: java.util.Map[String, String]): Table = {
+    if (views.contains(ident)) throw new TableAlreadyExistsException(ident.toString)
+    views += (ident -> schema)
+    loadTable(ident)
+  }
+
+  override def alterTable(ident: Identifier, changes: TableChange*): Table =
+    throw new UnsupportedOperationException("alterTable not supported")
+
+  override def dropTable(ident: Identifier): Boolean = {
+    val existed = views.contains(ident)
+    views -= ident
+    existed
+  }
+
+  override def renameTable(oldIdent: Identifier, newIdent: Identifier): Unit = {
+    if (!views.contains(oldIdent)) throw new NoSuchTableException(oldIdent.toString)
+    if (views.contains(newIdent)) throw new TableAlreadyExistsException(newIdent.toString)
+    views += (newIdent -> views(oldIdent))
+    views -= oldIdent
+  }
+
+  // --- Namespace operations ---
+
+  override def listNamespaces(): Array[Array[String]] =
+    namespaces.toArray
+
+  override def listNamespaces(namespace: Array[String]): Array[Array[String]] =
+    if (namespaces.exists(_.sameElements(namespace))) Array.empty
+    else throw new NoSuchNamespaceException(namespace.mkString("."))
+
+  override def loadNamespaceMetadata(namespace: Array[String]): java.util.Map[String, String] =
+    if (namespaces.exists(_.sameElements(namespace))) new java.util.HashMap[String, String]()
+    else throw new NoSuchNamespaceException(namespace.mkString("."))
+
+  override def createNamespace(namespace: Array[String], metadata: java.util.Map[String, String]): Unit =
+    namespaces += namespace
+
+  override def alterNamespace(namespace: Array[String], changes: NamespaceChange*): Unit =
+    throw new UnsupportedOperationException("alterNamespace not supported")
+
+  override def dropNamespace(namespace: Array[String], cascade: Boolean): Boolean = {
+    val existed = namespaces.exists(_.sameElements(namespace))
+    namespaces = namespaces.filterNot(_.sameElements(namespace))
+    views = views.filterNot(_._1.namespace().sameElements(namespace))
+    existed
+  }
+}

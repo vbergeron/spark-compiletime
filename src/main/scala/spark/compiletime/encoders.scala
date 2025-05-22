@@ -1,4 +1,4 @@
-package spark.encoders
+package spark.compiletime.encoders
 
 import scala.quoted.*
 import scala.deriving.*
@@ -10,7 +10,7 @@ import org.apache.spark.sql.Row
 import scala.reflect.ClassTag
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.catalyst.encoders.OuterScopes
-import spark.utils
+import spark.compiletime.utils
 
 // A reimplementation of the very special derivation in ScalaReflection.encoderFor
 private def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] = {

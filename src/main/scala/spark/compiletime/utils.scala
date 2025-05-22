@@ -1,4 +1,4 @@
-package spark.utils
+package spark.compiletime.utils
 
 import scala.quoted.*
 import scala.reflect.ClassTag
