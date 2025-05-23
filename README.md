@@ -38,7 +38,6 @@ Validate your Spark SQL queries during compilation, eliminating runtime SQL synt
 - Prevents errors before your code even runs!
 
 :warning: Like schema definition, only raw litteral string are supported for now.
-:warning: SQL Functions are not yet supported due to some cryptic bugs
 
 ```scala
 val df = spark.sql(domain.sql("select * from user join post on (user.name = post.author)"))
@@ -50,6 +49,8 @@ val df = spark.sql(domain.sql("select * from user join post on (user.name = post
 //    +- SubqueryAlias compiletime.default.post
 //       +- RelationV2[author#2, content#3, tags#4] compiletime.default.post post
 ```
+
+There are some more advanced usage samples in the `./exemples` directory.
 
 ### Compile-time Encoder derivation
 

@@ -14,3 +14,6 @@ lazy val munit = Seq(
 
 lazy val `spark-compiletime` = (project in file("."))
   .settings(libraryDependencies ++= Seq.concat(spark, munit.map(_ % Test)))
+
+lazy val exemples = (project in file("exemples"))
+  .dependsOn(`spark-compiletime`)
