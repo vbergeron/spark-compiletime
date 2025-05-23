@@ -32,5 +32,5 @@ ThisBuild / developers   := List(
 
 ThisBuild / versionScheme := Some("early-semver")
 
-ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
+ThisBuild / sonatypeCredentialHost := "central.sonatype.org"
 ThisBuild / sonatypeRepository     := "https://s01.oss.sonatype.org/service/local"
