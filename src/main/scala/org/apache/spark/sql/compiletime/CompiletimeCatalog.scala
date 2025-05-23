@@ -12,6 +12,12 @@ import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.catalog.InMemoryCatalog
 import org.apache.spark.sql.connector.catalog.functions.UnboundFunction
 import org.apache.spark.sql.catalyst.util.ResolveDefaultColumns.BuiltInFunctionCatalog
+import org.apache.spark.sql.catalyst.analysis.FunctionRegistry
+import org.apache.spark.sql.catalyst.FunctionIdentifier
+import org.apache.spark.sql.catalyst.analysis.TableFunctionRegistry
+import org.apache.spark.sql.catalyst.catalog.CatalogDatabase
+import org.apache.spark.sql.internal.connector.V1Function
+import java.net.URI
 
 class CompiletimeCatalog extends TableCatalog, FunctionCatalog, SupportsNamespaces {
 
@@ -27,8 +33,7 @@ class CompiletimeCatalog extends TableCatalog, FunctionCatalog, SupportsNamespac
     namespaces += Array(db)
   }
 
-  def manager =
-    CatalogManager(this, SessionCatalog(InMemoryCatalog()))
+  def manager = CatalogManager(this, SessionCatalog(InMemoryCatalog(), FunctionRegistry.builtin, TableFunctionRegistry.builtin))
 
   // implements TableCatalog & SupportsNamespaces
   override def initialize(name: String, options: CaseInsensitiveStringMap): Unit = {
@@ -103,10 +108,14 @@ class CompiletimeCatalog extends TableCatalog, FunctionCatalog, SupportsNamespac
     existed
   }
 
+  // --- Function operations ---
+
+  import CatalogV2Implicits.*
+
   override def loadFunction(ident: Identifier): UnboundFunction =
-    BuiltInFunctionCatalog.loadFunction(ident)
+    throw new UnsupportedOperationException("loadFunctions not supported")
 
   override def listFunctions(namespace: Array[String]): Array[Identifier] =
-    BuiltInFunctionCatalog.listFunctions(namespace)
+    throw new UnsupportedOperationException("listFunctions not supported")
 
 }
