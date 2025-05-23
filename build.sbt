@@ -18,7 +18,7 @@ lazy val `spark-compiletime` = (project in file("."))
 lazy val exemples = (project in file("exemples"))
   .dependsOn(`spark-compiletime`)
 
-ThisBuild / organization := "com.github.sbt"
+ThisBuild / organization := "io.github.vbergeron"
 ThisBuild / homepage     := Some(url("https://github.com/sbt/sbt-ci-release"))
 ThisBuild / licenses     := List("BSD 3-Clause" -> url("https://opensource.org/license/bsd-3-clause"))
 ThisBuild / developers   := List(
@@ -33,4 +33,4 @@ ThisBuild / developers   := List(
 ThisBuild / versionScheme := Some("early-semver")
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
-sonatypeRepository                 := "https://s01.oss.sonatype.org/service/local"
+ThisBuild / sonatypeRepository     := "https://s01.oss.sonatype.org/service/local"
