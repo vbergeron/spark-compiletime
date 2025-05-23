@@ -29,3 +29,8 @@ ThisBuild / developers   := List(
     url("https://github.com/vbergeron")
   )
 )
+
+ThisBuild / versionScheme := Some("early-semver")
+
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
+sonatypeRepository                 := "https://s01.oss.sonatype.org/service/local"
