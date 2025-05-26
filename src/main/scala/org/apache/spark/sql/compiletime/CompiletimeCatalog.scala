@@ -19,7 +19,7 @@ import org.apache.spark.sql.catalyst.catalog.CatalogDatabase
 import org.apache.spark.sql.internal.connector.V1Function
 import java.net.URI
 
-class CompiletimeCatalog extends TableCatalog, FunctionCatalog, SupportsNamespaces {
+class CompiletimeCatalog extends TableCatalog, SupportsNamespaces {
 
   // Storage
   private var catalogName: String = scala.compiletime.uninitialized
@@ -107,15 +107,5 @@ class CompiletimeCatalog extends TableCatalog, FunctionCatalog, SupportsNamespac
     views = views.filterNot(_._1.namespace().sameElements(namespace))
     existed
   }
-
-  // --- Function operations ---
-
-  import CatalogV2Implicits.*
-
-  override def loadFunction(ident: Identifier): UnboundFunction =
-    throw new UnsupportedOperationException("loadFunctions not supported")
-
-  override def listFunctions(namespace: Array[String]): Array[Identifier] =
-    throw new UnsupportedOperationException("listFunctions not supported")
 
 }

@@ -20,7 +20,7 @@ val user = table("create table user (name string, age int)")
 
 val post = table("create table post (author string, content string, tags array<string>)")
 
-val catalog = catalog(user, post)
+val domain = catalog(user, post)
 
 // read with the derived structure
 val posts = spark.read.schema(post.schema).json(...)
@@ -55,6 +55,14 @@ There are some more advanced usage samples in the `./exemples` directory.
 ### Compile-time Encoder derivation
 
 Generate efficient Spark encoders from a macro, re-enabling derivation of them for Scala 3.
+```scala
+import spark.compiletime.*
+
+case class User(name: String, age: Int, tags: Array[Int])
+
+// Compile time derivation, like the good ole' Encoders.product
+val encoder = encoders.encoderOf[User]
+```
 Most of the use case covered by `Encoders.product` should be covered, with some limitations.
 - UDT are not supported. Support for annotation based UDT and builtin ones (fomr graphx and mllib) could be possible, but generic registration types would not.
 - Scala enumeration types are able to be derived as `AgnosticEncoder` but not as `ExpressionEncoder` (TODO)

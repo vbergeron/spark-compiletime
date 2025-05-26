@@ -29,8 +29,4 @@ class SimpleTest extends munit.FunSuite {
     assertEquals(post.schema, encoders.encoderOf[Post].schema)
   }
 
-  // This does not compiles.
-  // Please uncomment when function support is reached
-  // domain.sql("select upper(name) from user")
-
 }
