@@ -1,4 +1,5 @@
-ThisBuild / scalaVersion := "3.3.6"
+ThisBuild / scalaVersion  := "3.3.6"
+ThisBuild / versionScheme := Some("early-semver")
 
 // Compile / compile / javaHome :=
 
@@ -30,7 +31,8 @@ ThisBuild / developers   := List(
   )
 )
 
-ThisBuild / versionScheme := Some("early-semver")
-
-ThisBuild / sonatypeCredentialHost := "central.sonatype.org"
-ThisBuild / sonatypeRepository     := "https://s01.oss.sonatype.org/service/local"
+ThisBuild / publishTo := {
+  val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
+  if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
+  else localStaging.value
+}
