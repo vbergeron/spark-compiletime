@@ -3,14 +3,15 @@ package spark.compiletime
 import org.apache.spark.sql.types.Decimal
 import org.apache.spark.unsafe.types.CalendarInterval
 import org.apache.spark.sql.Row
+import munit.Location
 
 class EncoderTest extends munit.FunSuite {
 
-  inline def testDerivation[T] = test(s"derive encoder: ${typeName[T]}") {
+  inline def testDerivation[T](using Location) = test(s"derive encoder: ${typeName[T]}") {
     encoders.encoderOf[T]
   }
 
-  inline def testDerivationAgnostic[T] = test(s"derive agnostic encoder: ${typeName[T]}") {
+  inline def testDerivationAgnostic[T](using Location) = test(s"derive agnostic encoder: ${typeName[T]}") {
     encoders.agnosticEncoderOf[T]
   }
 

@@ -5,12 +5,11 @@ import mirrors.CatalogMirror
 import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
 import org.apache.spark.sql.catalyst.plans.logical.CreateTable
 import org.apache.spark.sql.catalyst.analysis.UnresolvedIdentifier
+import org.apache.spark.sql.catalyst.analysis.Analyzer
 import org.apache.spark.sql.compiletime.CompiletimeCatalog
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.catalyst.QueryPlanningTracker
-import org.apache.spark.sql.catalyst.analysis.Analyzer
-import spark.compiletime.utils.typeFromString
 
 private def createTableMirrorImpl(sqlExpr: Expr[String])(using Quotes): Expr[TableMirror] =
   import quotes.reflect.*
@@ -34,9 +33,9 @@ private def createTableMirrorImpl(sqlExpr: Expr[String])(using Quotes): Expr[Tab
     case unexpected =>
       report.errorAndAbort(s"Only non-namespaced table name are supporte, got $unexpected")
 
-  val nameType   = typeFromString(name)
-  val schemaType = typeFromString(create.tableSchema.toDDL)
-  val queryType  = typeFromString(sql)
+  val nameType   = utils.typeFromString(name)
+  val schemaType = utils.typeFromString(create.tableSchema.toDDL)
+  val queryType  = utils.typeFromString(sql)
 
   (nameType, schemaType, queryType) match
     case ('[name], '[schema], '[query]) =>
@@ -55,6 +54,12 @@ transparent inline def table(inline sql: String): TableMirror =
   ${ createTableMirrorImpl('sql) }
 
 def createCatalogMirrorImpl[T <: Tuple](using Quotes, Type[T]): Expr[CatalogMirror] =
+  import quotes.reflect.*
+  val types = utils.typesFromTuple[T]
+  types.foreach:
+    case '[t] if utils.subtypeOf[t, TableMirror] => ()
+    case '[t]                                    =>
+      report.errorAndAbort(s"Expected all catalog member to be an instance of TableMirror type but got ${Type.show[t]}")
   '{ new CatalogMirror { type Tables = T } }
 
 transparent inline def catalog(table: TableMirror): CatalogMirror =
@@ -96,9 +101,6 @@ def checkSQLImpl[DB <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[
   catch case error => report.errorAndAbort(error.getMessage)
 
   sqlExpr
-
-inline def checkSQL[DB <: CatalogMirror](inline sql: String): String =
-  ${ checkSQLImpl[DB]('sql) }
 
 extension [T <: CatalogMirror](db: T)
   inline def sql(inline sql: String): String =
