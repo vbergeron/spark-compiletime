@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "3.7.0"
+ThisBuild / scalaVersion := "3.3.6"
 
 // Compile / compile / javaHome :=
 

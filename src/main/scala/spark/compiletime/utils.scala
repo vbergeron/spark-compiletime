@@ -19,6 +19,10 @@ def stringFromType[T: Type](using Quotes): String =
     case _                                   =>
       report.errorAndAbort(s"expected a constant string, got ${TypeRepr.of[T]}")
 
+def typeFromString(name: String)(using Quotes): Type[?] =
+  import quotes.reflect.*
+  ConstantType(StringConstant(name)).asType
+
 def classOf[A](using Quotes, Type[A]): Expr[Class[A]] =
   import quotes.reflect.*
   Literal(ClassOfConstant(TypeRepr.of[A])).asExprOf[Class[A]]

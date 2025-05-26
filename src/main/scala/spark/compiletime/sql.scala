@@ -10,6 +10,7 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.catalyst.QueryPlanningTracker
 import org.apache.spark.sql.catalyst.analysis.Analyzer
+import spark.compiletime.utils.typeFromString
 
 private def createTableMirrorImpl(sqlExpr: Expr[String])(using Quotes): Expr[TableMirror] =
   import quotes.reflect.*
@@ -20,19 +21,22 @@ private def createTableMirrorImpl(sqlExpr: Expr[String])(using Quotes): Expr[Tab
 
   val create = plan match
     case node: CreateTable => node
-    case _                 => report.errorAndAbort("Not a CreateTable statement")
+    case unexpected        =>
+      report.errorAndAbort(s"Not a CreateTable statement, got $unexpected")
 
   val names = create.name match
     case node: UnresolvedIdentifier => node
-    case _                          => report.errorAndAbort("Not a UnresolvedIdentifier")
+    case unexpected                 =>
+      report.errorAndAbort(s"Expected the table name to not be resolved, got $unexpected")
 
   val name = names.nameParts match
     case Seq(table) => table
-    case _          => report.errorAndAbort("Only non-namespaced table name are supported")
+    case unexpected =>
+      report.errorAndAbort(s"Only non-namespaced table name are supporte, got $unexpected")
 
-  val nameType   = ConstantType(StringConstant(name)).asType
-  val schemaType = ConstantType(StringConstant(create.tableSchema.toDDL)).asType
-  val queryType  = ConstantType(StringConstant(sql)).asType
+  val nameType   = typeFromString(name)
+  val schemaType = typeFromString(create.tableSchema.toDDL)
+  val queryType  = typeFromString(sql)
 
   (nameType, schemaType, queryType) match
     case ('[name], '[schema], '[query]) =>
