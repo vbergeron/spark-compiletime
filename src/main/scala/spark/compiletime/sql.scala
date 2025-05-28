@@ -16,6 +16,6 @@ object catalog:
   transparent inline def apply[tables <: Tuple](tables: tables): CatalogMirror =
     ${ macros.createCatalogMirrorImpl[tables] }
 
-extension [T <: CatalogMirror](db: T)
+extension (db: CatalogMirror)
   inline def sql(inline sql: String): String =
-    ${ macros.checkSQLImpl[T]('sql) }
+    ${ macros.checkSQLImpl[db.type]('sql) }
