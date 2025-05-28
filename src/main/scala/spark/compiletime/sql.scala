@@ -4,18 +4,24 @@ import mirrors.TableMirror
 import mirrors.CatalogMirror
 
 transparent inline def table(inline sql: String): TableMirror =
-  ${ macros.createTableMirrorImpl('sql) }
+  ${ macros.createTable[CatalogMirror.Empty]('sql) }
 
 object catalog:
   transparent inline def empty: CatalogMirror =
-    ${ macros.createCatalogMirrorImpl[EmptyTuple] }
+    ${ macros.createCatalog[EmptyTuple] }
 
   transparent inline def apply(table: TableMirror): CatalogMirror =
-    ${ macros.createCatalogMirrorImpl[table.type *: EmptyTuple] }
+    ${ macros.createCatalog[table.type *: EmptyTuple] }
 
   transparent inline def apply[tables <: Tuple](tables: tables): CatalogMirror =
-    ${ macros.createCatalogMirrorImpl[tables] }
+    ${ macros.createCatalog[tables] }
 
 extension (db: CatalogMirror)
   inline def sql(inline sql: String): String =
-    ${ macros.checkSQLImpl[db.type]('sql) }
+    ${ macros.checkSQL[db.type]('sql) }
+
+  transparent inline def table(inline sql: String): TableMirror =
+    ${ macros.createTable[db.type]('sql) }
+
+inline def parseSQL(inline sql: String): Unit =
+  ${ macros.parseSQL('sql) }

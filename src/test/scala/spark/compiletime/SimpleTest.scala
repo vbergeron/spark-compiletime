@@ -4,13 +4,32 @@ import org.apache.spark.sql.SparkSession
 
 class SimpleTest extends munit.FunSuite {
 
+  inline def assertNotCompile(inline code: String): Unit =
+    assert:
+      val errors = compileErrors(code)
+      clue(code)
+      clue(errors)
+      errors.nonEmpty
+
   val user = table("create table user (name string, age int not null)")
 
   val post = table("create table post (author string, content string, tags array<string>)")
 
   val domain = catalog(user, post)
 
+  val user2 = domain.table("create table user2 as select * from user")
+
   val query = domain.sql("select * from user join post on (user.name = post.author)")
+
+  test("Create table errors are checked at compile time") {
+    assertNotCompile:
+      """table("creat table user (name string, age int not null)")"""
+  }
+
+  test("Create view errors are checked at compile time") {
+    assertNotCompile:
+      """table("create view user as select * from post")"""
+  }
 
   // kind of a devoid test case since we are only asserting compilability
   test("SparkSession compiletime test".ignore) {
