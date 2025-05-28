@@ -2,6 +2,8 @@
 
 A compile-time validation library for Apache Spark SQL that enables type-safe SQL operations, schema validation, and optimized encoders for Scala 3 applications.
 
+:warning: Currently the library is built against Spark 3.5.5 only. Most of the machinery is done at compile time, though it _may_ be useable on other versions.
+
 ## Features
 
 ### Compiletime Table and Catalog Definitions
@@ -27,6 +29,18 @@ val posts = spark.read.schema(post.schema).json(...)
 
 // alternatively, access the creation query and run it
 spark.sql(user.query + "using json ...")
+```
+
+Alternatively, catalogs and tables can be built incrementally, fully supporting dependent tables (and checking at compile-time !) the `CREATE TABLE ... AS (SELECT ...)`.
+
+```scala
+val user = table("create table user (name string, age int)")
+val post = table("create table post (author string, content string, tags array<string>)")
+
+val domain = catalog.empty
+  .add(user)
+  .add(post)
+  .add("create table user2 as select * from user")
 ```
 
 ### Compile-time SQL Validation

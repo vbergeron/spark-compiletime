@@ -8,6 +8,16 @@ def typesFromTuple[Ts: Type](using Quotes): List[Type[?]] =
     case '[t *: ts]    => Type.of[t] :: typesFromTuple[ts]
     case '[EmptyTuple] => Nil
 
+def tupleFromTypes(types: List[Type[?]])(using Quotes): Type[?] =
+  import quotes.reflect.*
+  types match
+    case Nil             => TypeRepr.of[EmptyTuple].asType
+    case '[head] :: tail =>
+      tupleFromTypes(tail) match
+        case '[tail] => TypeRepr.of[head *: (tail & Tuple)].asType
+
+    case _ => report.errorAndAbort(s"expected a list of types")
+
 def stringsFromTuple[Ts: Type](using Quotes): List[String] =
   typesFromTuple[Ts].map:
     case '[t] => stringFromType[t]
@@ -44,3 +54,9 @@ def subtypeOf[A, B](using Quotes, Type[A], Type[B]): Boolean =
 def hasAnnotation[A, T](using Quotes, Type[A], Type[T]): Boolean =
   import quotes.reflect.*
   TypeRepr.of[A].classSymbol.get.annotations.exists(_.tpe =:= TypeRepr.of[T])
+
+def varargsOf(argsExpr: Expr[Seq[?]])(using Quotes): List[Expr[?]] =
+  import quotes.reflect.*
+  argsExpr match
+    case Varargs(args) => args.toList
+    case _             => report.errorAndAbort("Expected a varargs expression")

@@ -110,3 +110,11 @@ def createCatalog[T <: Tuple](using Quotes, Type[T]): Expr[CatalogMirror] =
     case '[t]                                    =>
       report.errorAndAbort(s"Expected all catalog member to be an instance of TableMirror type but got ${Type.show[t]}")
   '{ new CatalogMirror { type Tables = T } }
+
+def createCatalogVarargs(using Quotes)(tablesExpr: Expr[Seq[TableMirror]]): Expr[CatalogMirror] =
+  import quotes.reflect.*
+
+  val types = utils.varargsOf(tablesExpr).map(_.asTerm.tpe.asType)
+
+  utils.tupleFromTypes(types) match
+    case '[tables] => '{ new CatalogMirror { type Tables = tables & Tuple } }

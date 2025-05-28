@@ -17,6 +17,8 @@ class SimpleTest extends munit.FunSuite {
 
   val domain = catalog(user, post)
 
+  val foo = catalog.empty.add(user).add(post)
+
   val domain2 = domain.add("create table user2 as select * from user")
 
   val query = domain2.sql("select * from user join post on (user.name = post.author)")

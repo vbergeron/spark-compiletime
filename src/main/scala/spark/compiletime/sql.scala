@@ -7,14 +7,17 @@ transparent inline def table(inline sql: String): TableMirror =
   ${ macros.createTable[CatalogMirror.Empty]('sql) }
 
 object catalog:
-  transparent inline def empty: CatalogMirror =
-    ${ macros.createCatalog[EmptyTuple] }
+  val empty: CatalogMirror =
+    new CatalogMirror { type Tables = EmptyTuple }
 
-  transparent inline def apply(table: TableMirror): CatalogMirror =
-    ${ macros.createCatalog[table.type *: EmptyTuple] }
+  private transparent inline def varargs(inline tables: TableMirror*): CatalogMirror =
+    ${ macros.createCatalogVarargs('tables) }
 
-  transparent inline def apply[tables <: Tuple](tables: tables): CatalogMirror =
-    ${ macros.createCatalog[tables] }
+  transparent inline def apply(inline table: TableMirror): CatalogMirror =
+    varargs(table)
+
+  transparent inline def apply(inline tables: TableMirror*): CatalogMirror =
+    varargs(tables*)
 
 extension (db: CatalogMirror)
   inline def sql(inline sql: String): String =
