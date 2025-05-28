@@ -80,8 +80,10 @@ class EncoderTest extends munit.FunSuite {
 
   testDerivation[User]
 
-  // Should not compile
-  // case class Rec(again: Rec)
-  // testDerivation[Rec]
+  test("Recursive types should not compile") {
+    case class Rec(again: Rec)
+    val errors = compileErrors("encoders.encoderOf[Rec]")
+    assert(errors.nonEmpty)
+  }
 
 }

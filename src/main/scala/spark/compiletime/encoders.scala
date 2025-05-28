@@ -120,10 +120,10 @@ private def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] =
           val labels = utils.stringsFromTuple[labels]
           val types  = utils.typesFromTuple[types]
 
-          val tpe = Type.of[A]
-
-          if types.contains(tpe)
-          then report.errorAndAbort(s"circular dependency: $tpe in $types")
+          types.foreach:
+            case '[e] =>
+              if TypeRepr.of[e] =:= TypeRepr.of[t]
+              then report.errorAndAbort(s"circular dependency: ${Type.show[A]} contains itself")
 
           val params = (labels zip types).map:
             case label -> '[t] =>
