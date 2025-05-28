@@ -23,5 +23,11 @@ extension (db: CatalogMirror)
   transparent inline def table(inline sql: String): TableMirror =
     ${ macros.createTable[db.type]('sql) }
 
+  transparent inline def add(table: TableMirror): CatalogMirror =
+    db.asInstanceOf[CatalogMirror { type Tables = table.type *: db.Tables }]
+
+  transparent inline def add(inline sql: String): CatalogMirror =
+    db.add(table(sql))
+
 inline def parseSQL(inline sql: String): Unit =
   ${ macros.parseSQL('sql) }

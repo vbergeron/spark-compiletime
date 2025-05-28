@@ -110,18 +110,3 @@ def createCatalog[T <: Tuple](using Quotes, Type[T]): Expr[CatalogMirror] =
     case '[t]                                    =>
       report.errorAndAbort(s"Expected all catalog member to be an instance of TableMirror type but got ${Type.show[t]}")
   '{ new CatalogMirror { type Tables = T } }
-
-def appendTableToCatalog[Catalog <: CatalogMirror](table: Expr[TableMirror])(using Quotes, Type[Catalog]): Expr[CatalogMirror] =
-  table match
-    case '{ $m: TableMirror } =>
-      Type.of[Catalog] match
-        case '[Catalog { type Tables = tables }] =>
-          '{
-            val mi = $m
-            new CatalogMirror {
-              type Tables = tables *: mi.type *: EmptyTuple
-            }
-          }
-
-def appendTableSQLToCatalog[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[Catalog]): Expr[CatalogMirror] =
-  appendTableToCatalog(createTable[Catalog](sqlExpr))

@@ -17,9 +17,9 @@ class SimpleTest extends munit.FunSuite {
 
   val domain = catalog(user, post)
 
-  val user2 = domain.table("create table user2 as select * from user")
+  val domain2 = domain.add("create table user2 as select * from user")
 
-  val query = domain.sql("select * from user join post on (user.name = post.author)")
+  val query = domain2.sql("select * from user join post on (user.name = post.author)")
 
   test("Create table errors are checked at compile time") {
     assertNotCompile:
