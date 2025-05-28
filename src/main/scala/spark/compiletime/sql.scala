@@ -2,6 +2,8 @@ package spark.compiletime
 import scala.quoted.*
 import mirrors.TableMirror
 import mirrors.CatalogMirror
+import org.apache.spark.sql.*
+import org.apache.spark.sql.streaming.*
 
 transparent inline def table(inline sql: String): TableMirror =
   ${ macros.createTable[CatalogMirror.Empty]('sql) }
@@ -34,3 +36,13 @@ extension (db: CatalogMirror)
 
 inline def parseSQL(inline sql: String): Unit =
   ${ macros.parseSQL('sql) }
+
+extension (spark: SparkSession)
+  inline def reader(table: TableMirror): DataFrameReader =
+    spark.read.schema(table.schema)
+
+  inline def streamReader(table: TableMirror): DataStreamReader =
+    spark.readStream.schema(table.schema)
+
+  inline def sql(catalog: CatalogMirror)(inline sql: String): DataFrame =
+    spark.sql(catalog.sql(sql))

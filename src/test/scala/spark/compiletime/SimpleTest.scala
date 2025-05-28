@@ -43,6 +43,8 @@ class SimpleTest extends munit.FunSuite {
     spark.sql(user.query + "using json") // + options
 
     spark.sql(query)
+
+    spark.sql(domain)("select * from user join post on (user.name = post.author)")
   }
 
   test("Consistency of schemas") {
