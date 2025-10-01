@@ -61,11 +61,18 @@ def checkSQL[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type
   report.info(resolved.toString)
   sqlExpr
 
+def createTableVrebose[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[Catalog]): Expr[TableMirror] =
+  createTable[Catalog](sqlExpr, true)
+
 def createTable[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[Catalog]): Expr[TableMirror] =
+  createTable[Catalog](sqlExpr, false)
+
+def createTable[Catalog <: CatalogMirror](sqlExpr: Expr[String], shouldLogPlan: Boolean)(using Quotes, Type[Catalog]): Expr[TableMirror] =
   import quotes.reflect.*
+
   val sql  = sqlExpr.valueOrAbort
   val plan = parseAndAnalysePlan[Catalog](sqlExpr)
-  report.info(plan.toString)
+  if shouldLogPlan then report.info(plan.toString)
 
   val (tableName, tableSchema) = plan match
     case node: V2CreateTablePlan => (node.tableName, node.tableSchema)

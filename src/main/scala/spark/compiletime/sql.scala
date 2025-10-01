@@ -5,8 +5,16 @@ import mirrors.CatalogMirror
 import org.apache.spark.sql.*
 import org.apache.spark.sql.streaming.*
 
-transparent inline def table(inline sql: String): TableMirror =
+private transparent inline def tableImpl(inline sql: String): TableMirror =
   ${ macros.createTable[CatalogMirror.Empty]('sql) }
+
+private transparent inline def tableVerboseImpl(inline sql: String): TableMirror =
+  ${ macros.createTableVrebose[CatalogMirror.Empty]('sql) }
+
+transparent inline def table(inline sql: String)(using inline logPlan: LogPlan): TableMirror =
+  inline logPlan match
+    case LogPlan.Yes => tableVerboseImpl(sql)
+    case LogPlan.No  => tableImpl(sql)
 
 object catalog:
   val empty: CatalogMirror =
