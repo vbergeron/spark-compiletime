@@ -19,12 +19,11 @@ import org.apache.spark.sql.catalyst.catalog.CatalogDatabase
 import org.apache.spark.sql.internal.connector.V1Function
 import java.net.URI
 
-class CompiletimeCatalog extends TableCatalog, SupportsNamespaces {
+class CompiletimeCatalog(val name: String) extends TableCatalog, SupportsNamespaces {
 
   // Storage
-  private var catalogName: String = scala.compiletime.uninitialized
-  private var namespaces          = Set(Array("default"))
-  private var views               = Map.empty[Identifier, StructType]
+  private var namespaces = Set(Array("default"))
+  private var views      = Map.empty[Identifier, StructType]
 
   // Custom part
   def addTable(db: String, name: String, schema: StructType): Unit = {
@@ -33,14 +32,16 @@ class CompiletimeCatalog extends TableCatalog, SupportsNamespaces {
     namespaces += Array(db)
   }
 
+  def addTable(table: CompiletimeTable): Unit = {
+    val ident = table.ident
+    views = views.updated(ident, table.schema())
+    namespaces += ident.namespace()
+  }
+
   def manager = CatalogManager(this, SessionCatalog(InMemoryCatalog(), FunctionRegistry.builtin, TableFunctionRegistry.builtin))
 
   // implements TableCatalog & SupportsNamespaces
-  override def initialize(name: String, options: CaseInsensitiveStringMap): Unit = {
-    catalogName = name
-  }
-
-  override def name(): String = catalogName
+  override def initialize(name: String, options: CaseInsensitiveStringMap): Unit = {}
 
   override def listTables(namespace: Array[String]): Array[Identifier] =
     views.keys.filter(_.namespace().sameElements(namespace)).toArray
@@ -48,15 +49,7 @@ class CompiletimeCatalog extends TableCatalog, SupportsNamespaces {
   override def loadTable(ident: Identifier): Table = {
     views
       .get(ident)
-      .map { s =>
-        new Table {
-          override def name(): String = ident.name()
-
-          override def schema(): StructType = s
-
-          override def capabilities(): java.util.Set[TableCapability] = java.util.Collections.emptySet()
-        }
-      }
+      .map(schema => new CompiletimeTable(ident, schema))
       .getOrElse(throw new NoSuchTableException(ident.toString))
   }
 

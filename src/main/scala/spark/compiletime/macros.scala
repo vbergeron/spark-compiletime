@@ -14,6 +14,7 @@ import org.apache.spark.sql.catalyst.plans.logical.CreateTableAsSelect
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.analysis.ResolvedIdentifier
 import org.apache.spark.sql.connector.catalog.Identifier
+import org.apache.spark.sql.catalyst.plans.logical.V2CreateTablePlan
 
 private def parsePlan(sqlExpr: Expr[String])(using Quotes): LogicalPlan =
   import quotes.reflect.*
@@ -27,8 +28,7 @@ private def parseAndAnalysePlan[DB <: CatalogMirror](sqlExpr: Expr[String])(usin
   import quotes.reflect.*
   val plan = parsePlan(sqlExpr)
 
-  val catalog = new CompiletimeCatalog()
-  catalog.initialize("compiletime", CaseInsensitiveStringMap.empty())
+  val catalog = CompiletimeCatalog("compiletime")
 
   val tables = spark.compiletime.mirrors.macros.tablesImpl[DB].valueOrAbort
 
@@ -67,39 +67,27 @@ def createTable[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, T
   val plan = parseAndAnalysePlan[Catalog](sqlExpr)
   report.info(plan.toString)
 
-  val create = plan match
-    case node: CreateTable         => node
-    case node: CreateTableAsSelect => node
-    case unexpected                =>
-      report.errorAndAbort(s"Not a CreateTable statement, got $unexpected")
+  val (tableName, tableSchema) = plan match
+    case node: V2CreateTablePlan => (node.tableName, node.tableSchema)
+    case unexpected              =>
+      report.errorAndAbort(s"Not a table creation statement, got $unexpected")
 
-  val identifier = create.name match
-    case node: UnresolvedIdentifier => Identifier.of(node.nameParts.init.toArray, node.nameParts.last)
-    case node: ResolvedIdentifier   => node.identifier
-    case unexpected                 =>
-      report.errorAndAbort(s"Expected identifier, got $unexpected")
-
-  val name = identifier.name()
-  // names.nameParts match
-  // case Seq(table) => table
-  // case unexpected =>
-  //  report.errorAndAbort(s"Only non-namespaced table name are supporte, got $unexpected")
-
-  val nameType   = utils.typeFromString(name)
-  val schemaType = utils.typeFromString(create.tableSchema.toDDL)
+  val dbType     = utils.typeFromString(tableName.namespace().mkString("."))
+  val nameType   = utils.typeFromString(tableName.name())
+  val schemaType = utils.typeFromString(tableSchema.toDDL)
   val queryType  = utils.typeFromString(sql)
 
-  (nameType, schemaType, queryType) match
-    case ('[name], '[schema], '[query]) =>
+  (dbType, nameType, schemaType, queryType) match
+    case ('[db], '[name], '[schema], '[query]) =>
       '{
         new TableMirror {
-          type DB     = "default"
+          type DB     = db & String
           type Name   = name & String
           type Schema = schema & String
           type Query  = query & String
         }
       }
-    case unreachable                    =>
+    case unreachable                           =>
       report.errorAndAbort(s"Unexpected types: $unreachable")
 
 def createCatalog[T <: Tuple](using Quotes, Type[T]): Expr[CatalogMirror] =
