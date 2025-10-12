@@ -1,6 +1,7 @@
 package spark.compiletime
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.Encoder
 
 class SimpleTest extends munit.FunSuite {
 
@@ -45,6 +46,18 @@ class SimpleTest extends munit.FunSuite {
     spark.sql(query)
 
     spark.sql(domain)("select * from user join post on (user.name = post.author)")
+
+    case class User(name: String, age: Int)
+
+    given Encoder[User] = encoders.encoderOf[User]
+
+    val ds = spark.createDataset(
+      Seq(
+        User("Alice", 30),
+        User("Bob", 25)
+      )
+    )
+
   }
 
   test("Consistency of schemas") {

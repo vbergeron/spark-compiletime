@@ -4,17 +4,34 @@ import mirrors.TableMirror
 import mirrors.CatalogMirror
 import org.apache.spark.sql.*
 import org.apache.spark.sql.streaming.*
+import spark.compiletime.macros.createTable
 
-private transparent inline def tableImpl(inline sql: String): TableMirror =
-  ${ macros.createTable[CatalogMirror.Empty]('sql) }
+// Table creation helpers
+private transparent inline def createTableImpl[C <: CatalogMirror](inline sql: String): TableMirror =
+  ${ macros.createTable[C]('sql) }
 
-private transparent inline def tableVerboseImpl(inline sql: String): TableMirror =
-  ${ macros.createTableVrebose[CatalogMirror.Empty]('sql) }
+private transparent inline def createTableVerboseImpl[C <: CatalogMirror](inline sql: String): TableMirror =
+  ${ macros.createTableVrebose[C]('sql) }
+
+private transparent inline def createTable[C <: CatalogMirror](inline sql: String)(using inline logPlan: LogPlan): TableMirror =
+  inline logPlan match
+    case LogPlan.Yes => createTableVerboseImpl[C](sql)
+    case LogPlan.No  => createTableImpl[C](sql)
 
 transparent inline def table(inline sql: String)(using inline logPlan: LogPlan): TableMirror =
+  createTable[CatalogMirror.Empty](sql)(using logPlan)
+
+// SQL check helpers
+private transparent inline def checkSQLImpl[C <: CatalogMirror](inline sql: String): String =
+  ${ macros.checkSQL[C]('sql) }
+
+private transparent inline def checkSQLVerboseImpl[C <: CatalogMirror](inline sql: String): String =
+  ${ macros.checkSQLVerbose[C]('sql) }
+
+private transparent inline def checkSQL[C <: CatalogMirror](inline sql: String)(using inline logPlan: LogPlan): String =
   inline logPlan match
-    case LogPlan.Yes => tableVerboseImpl(sql)
-    case LogPlan.No  => tableImpl(sql)
+    case LogPlan.Yes => checkSQLVerboseImpl[C](sql)
+    case LogPlan.No  => checkSQLImpl[C](sql)
 
 object catalog:
   val empty: CatalogMirror =
@@ -30,11 +47,11 @@ object catalog:
     varargs(tables*)
 
 extension (db: CatalogMirror)
-  inline def sql(inline sql: String): String =
-    ${ macros.checkSQL[db.type]('sql) }
+  inline def sql(inline sql: String)(using inline logPlan: LogPlan): String =
+    checkSQL[db.type](sql)(using logPlan)
 
-  transparent inline def table(inline sql: String): TableMirror =
-    ${ macros.createTable[db.type]('sql) }
+  transparent inline def table(inline sql: String)(using inline logPlan: LogPlan): TableMirror =
+    createTable[db.type](sql)(using logPlan)
 
   transparent inline def add(table: TableMirror): CatalogMirror =
     db.asInstanceOf[CatalogMirror { type Tables = table.type *: db.Tables }]

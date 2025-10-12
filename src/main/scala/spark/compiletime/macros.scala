@@ -15,6 +15,10 @@ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.analysis.ResolvedIdentifier
 import org.apache.spark.sql.connector.catalog.Identifier
 import org.apache.spark.sql.catalyst.plans.logical.V2CreateTablePlan
+import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.DataFrameWriterV2
+import org.apache.hadoop.shaded.org.checkerframework.checker.units.qual.m
+import spark.compiletime.encoders.encoderOf
 
 private def parsePlan(sqlExpr: Expr[String])(using Quotes): LogicalPlan =
   import quotes.reflect.*
@@ -55,11 +59,17 @@ def parseSQL(sqlExpr: Expr[String])(using Quotes): Expr[Unit] =
   report.info(plan.toString)
   '{ () }
 
-def checkSQL[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[Catalog]): Expr[String] =
+def checkSQL[Catalog <: CatalogMirror](sqlExpr: Expr[String], shouldLogPlan: Boolean)(using Quotes, Type[Catalog]): Expr[String] =
   import quotes.reflect.*
   val resolved = parseAndAnalysePlan[Catalog](sqlExpr)
-  report.info(resolved.toString)
+  if shouldLogPlan then report.info(resolved.toString)
   sqlExpr
+
+def checkSQLVerbose[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[Catalog]): Expr[String] =
+  checkSQL[Catalog](sqlExpr, true)
+
+def checkSQL[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[Catalog]): Expr[String] =
+  checkSQL[Catalog](sqlExpr, false)
 
 def createTableVrebose[Catalog <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[Catalog]): Expr[TableMirror] =
   createTable[Catalog](sqlExpr, true)

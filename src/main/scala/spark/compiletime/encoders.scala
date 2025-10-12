@@ -13,7 +13,7 @@ import org.apache.spark.sql.catalyst.encoders.OuterScopes
 import spark.compiletime.utils
 
 // A reimplementation of the very special derivation in ScalaReflection.encoderFor
-private def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] = {
+def encoderForImpl[A](using Quotes, Type[A]): Expr[AgnosticEncoder[?]] = {
   import quotes.reflect.*
 
   val productMirror = Expr.summon[Mirror.ProductOf[A]]
