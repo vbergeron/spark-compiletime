@@ -1,7 +1,7 @@
 package spark.compiletime
 
-enum LogPlan:
+enum ShowPlans:
   case Yes, No
 
-object LogPlan:
-  transparent inline given LogPlan = LogPlan.No
+object ShowPlans:
+  transparent inline given ShowPlans = ShowPlans.No
