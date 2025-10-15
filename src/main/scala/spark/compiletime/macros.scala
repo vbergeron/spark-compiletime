@@ -19,6 +19,8 @@ import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.DataFrameWriterV2
 import org.apache.hadoop.shaded.org.checkerframework.checker.units.qual.m
 import spark.compiletime.encoders.encoderOf
+import org.apache.spark.sql.execution.SparkOptimizer
+import org.apache.spark.sql.compiletime.CompiletimeOptimizer
 
 private def parsePlan(sqlExpr: Expr[String])(using Quotes): LogicalPlan =
   import quotes.reflect.*
@@ -26,7 +28,7 @@ private def parsePlan(sqlExpr: Expr[String])(using Quotes): LogicalPlan =
   try CatalystSqlParser.parsePlan(sql)
   catch
     case error =>
-      report.errorAndAbort(error.getMessage)
+      report.errorAndAbort("[Parser] : " + error.getMessage)
 
 private def parseAndAnalysePlan[DB <: CatalogMirror](sqlExpr: Expr[String])(using Quotes, Type[DB]): LogicalPlan =
   import quotes.reflect.*
@@ -39,7 +41,7 @@ private def parseAndAnalysePlan[DB <: CatalogMirror](sqlExpr: Expr[String])(usin
   tables.foreach: (db, table, schema) =>
     val parsed =
       try StructType.fromDDL(schema)
-      catch case error => report.errorAndAbort(error.getMessage)
+      catch case error => report.errorAndAbort("[StructType] : " + error.getMessage)
 
     catalog.addTable(db, table, parsed)
 
@@ -50,8 +52,14 @@ private def parseAndAnalysePlan[DB <: CatalogMirror](sqlExpr: Expr[String])(usin
 
   val analyzer = Analyzer(manager)
 
-  try analyzer.executeAndCheck(plan, tracker)
-  catch case error => report.errorAndAbort(error.getMessage)
+  val analyzed =
+    try analyzer.executeAndCheck(plan, tracker)
+    catch case error => report.errorAndAbort("[Analyzer] : " + error.getMessage)
+
+  val optimizer = CompiletimeOptimizer(manager)
+
+  try optimizer.execute(analyzed)
+  catch case error => report.errorAndAbort("[Optimizer] : " + error.getStackTrace().toList)
 
 def parseSQL(sqlExpr: Expr[String])(using Quotes): Expr[Unit] =
   import quotes.reflect.*
